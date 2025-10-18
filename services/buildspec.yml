@@ -1,0 +1,35 @@
+version: 0.2
+
+phases:
+  pre_build:
+    commands:
+      - echo Logging in to Amazon ECR...
+      - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com
+      - REPOSITORY_URI_USER=$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/user-service
+      - REPOSITORY_URI_PRODUCT=$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/product-service
+      - COMMIT_HASH=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)
+      - IMAGE_TAG=${COMMIT_HASH:=latest}
+  
+  build:
+    commands:
+      - echo Build started on `date`
+      - echo Building the Docker images...
+      - docker build -t $REPOSITORY_URI_USER:latest ./services/user-service
+      - docker build -t $REPOSITORY_URI_PRODUCT:latest ./services/product-service
+      - docker tag $REPOSITORY_URI_USER:latest $REPOSITORY_URI_USER:$IMAGE_TAG
+      - docker tag $REPOSITORY_URI_PRODUCT:latest $REPOSITORY_URI_PRODUCT:$IMAGE_TAG
+  
+  post_build:
+    commands:
+      - echo Build completed on `date`
+      - echo Pushing the Docker images...
+      - docker push $REPOSITORY_URI_USER:latest
+      - docker push $REPOSITORY_URI_USER:$IMAGE_TAG
+      - docker push $REPOSITORY_URI_PRODUCT:latest
+      - docker push $REPOSITORY_URI_PRODUCT:$IMAGE_TAG
+      - echo Writing image definitions file...
+      - printf '[{"name":"user-service","imageUri":"%s"},{"name":"product-service","imageUri":"%s"}]' $REPOSITORY_URI_USER:$IMAGE_TAG $REPOSITORY_URI_PRODUCT:$IMAGE_TAG > imagedefinitions.json
+
+artifacts:
+  files:
+    - imagedefinitions.json
