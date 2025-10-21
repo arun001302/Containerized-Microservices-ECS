@@ -1,0 +1,147 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'ECS Services - Simplified Version'
+
+Parameters:
+  EnvironmentName:
+    Type: String
+    Default: microservices
+
+  UserServiceImage:
+    Type: String
+    Description: Docker image URI for User Service
+
+  ProductServiceImage:
+    Type: String
+    Description: Docker image URI for Product Service
+
+Resources:
+  # Task Definition for User Service
+  UserServiceTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Sub ${EnvironmentName}-user-service
+      NetworkMode: awsvpc
+      RequiresCompatibilities:
+        - FARGATE
+      Cpu: 256
+      Memory: 512
+      ExecutionRoleArn:
+        Fn::ImportValue: !Sub ${EnvironmentName}-ecs-task-execution-role
+      TaskRoleArn:
+        Fn::ImportValue: !Sub ${EnvironmentName}-ecs-task-role
+      ContainerDefinitions:
+        - Name: user-service
+          Image: !Ref UserServiceImage
+          Essential: true
+          PortMappings:
+            - ContainerPort: 3000
+              Protocol: tcp
+          Environment:
+            - Name: NODE_ENV
+              Value: production
+            - Name: PORT
+              Value: '3000'
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group:
+                Fn::ImportValue: !Sub ${EnvironmentName}-user-service-log-group
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: user-service
+
+  # Task Definition for Product Service
+  ProductServiceTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Sub ${EnvironmentName}-product-service
+      NetworkMode: awsvpc
+      RequiresCompatibilities:
+        - FARGATE
+      Cpu: 256
+      Memory: 512
+      ExecutionRoleArn:
+        Fn::ImportValue: !Sub ${EnvironmentName}-ecs-task-execution-role
+      TaskRoleArn:
+        Fn::ImportValue: !Sub ${EnvironmentName}-ecs-task-role
+      ContainerDefinitions:
+        - Name: product-service
+          Image: !Ref ProductServiceImage
+          Essential: true
+          PortMappings:
+            - ContainerPort: 3001
+              Protocol: tcp
+          Environment:
+            - Name: NODE_ENV
+              Value: production
+            - Name: PORT
+              Value: '3001'
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group:
+                Fn::ImportValue: !Sub ${EnvironmentName}-product-service-log-group
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: product-service
+
+  # ECS Service for User Service
+  UserService:
+    Type: AWS::ECS::Service
+    Properties:
+      ServiceName: !Sub ${EnvironmentName}-user-service
+      Cluster:
+        Fn::ImportValue: !Sub ${EnvironmentName}-ecs-cluster
+      TaskDefinition: !Ref UserServiceTaskDefinition
+      DesiredCount: 1
+      LaunchType: FARGATE
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: DISABLED
+          Subnets:
+            - Fn::ImportValue: !Sub ${EnvironmentName}-private-subnet-1
+            - Fn::ImportValue: !Sub ${EnvironmentName}-private-subnet-2
+          SecurityGroups:
+            - Fn::ImportValue: !Sub ${EnvironmentName}-ecs-sg
+      LoadBalancers:
+        - ContainerName: user-service
+          ContainerPort: 3000
+          TargetGroupArn:
+            Fn::ImportValue: !Sub ${EnvironmentName}-user-tg-blue-arn
+      HealthCheckGracePeriodSeconds: 120
+      DeploymentConfiguration:
+        MaximumPercent: 200
+        MinimumHealthyPercent: 50
+
+  # ECS Service for Product Service
+  ProductService:
+    Type: AWS::ECS::Service
+    Properties:
+      ServiceName: !Sub ${EnvironmentName}-product-service
+      Cluster:
+        Fn::ImportValue: !Sub ${EnvironmentName}-ecs-cluster
+      TaskDefinition: !Ref ProductServiceTaskDefinition
+      DesiredCount: 1
+      LaunchType: FARGATE
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: DISABLED
+          Subnets:
+            - Fn::ImportValue: !Sub ${EnvironmentName}-private-subnet-1
+            - Fn::ImportValue: !Sub ${EnvironmentName}-private-subnet-2
+          SecurityGroups:
+            - Fn::ImportValue: !Sub ${EnvironmentName}-ecs-sg
+      LoadBalancers:
+        - ContainerName: product-service
+          ContainerPort: 3001
+          TargetGroupArn:
+            Fn::ImportValue: !Sub ${EnvironmentName}-product-tg-blue-arn
+      HealthCheckGracePeriodSeconds: 120
+      DeploymentConfiguration:
+        MaximumPercent: 200
+        MinimumHealthyPercent: 50
+
+Outputs:
+  UserServiceName:
+    Value: !GetAtt UserService.Name
+  
+  ProductServiceName:
+    Value: !GetAtt ProductService.Name

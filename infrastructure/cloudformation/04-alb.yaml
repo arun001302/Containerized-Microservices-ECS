@@ -1,0 +1,221 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Application Load Balancer for Microservices - Fixed Version'
+
+Parameters:
+  EnvironmentName:
+    Type: String
+    Default: microservices
+    Description: Environment name prefix
+
+Resources:
+  # Application Load Balancer (Create this first)
+  ApplicationLoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: !Sub ${EnvironmentName}-alb
+      Type: application
+      Scheme: internet-facing
+      IpAddressType: ipv4
+      Subnets:
+        - Fn::ImportValue: !Sub ${EnvironmentName}-public-subnet-1
+        - Fn::ImportValue: !Sub ${EnvironmentName}-public-subnet-2
+      SecurityGroups:
+        - Fn::ImportValue: !Sub ${EnvironmentName}-alb-sg
+      Tags:
+        - Key: Name
+          Value: !Sub ${EnvironmentName}-alb
+
+  # Target Group for User Service (Blue)
+  UserServiceTargetGroupBlue:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    DependsOn: ApplicationLoadBalancer
+    Properties:
+      Name: !Sub ${EnvironmentName}-user-blue
+      Port: 3000
+      Protocol: HTTP
+      TargetType: ip
+      VpcId:
+        Fn::ImportValue: !Sub ${EnvironmentName}-vpc-id
+      HealthCheckEnabled: true
+      HealthCheckPath: /health
+      HealthCheckProtocol: HTTP
+      HealthCheckIntervalSeconds: 30
+      HealthCheckTimeoutSeconds: 5
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 3
+      Matcher:
+        HttpCode: 200
+      # This prevents CloudFormation from waiting for targets
+      TargetGroupAttributes:
+        - Key: deregistration_delay.timeout_seconds
+          Value: '30'
+
+  # Target Group for User Service (Green)
+  UserServiceTargetGroupGreen:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    DependsOn: ApplicationLoadBalancer
+    Properties:
+      Name: !Sub ${EnvironmentName}-user-green
+      Port: 3000
+      Protocol: HTTP
+      TargetType: ip
+      VpcId:
+        Fn::ImportValue: !Sub ${EnvironmentName}-vpc-id
+      HealthCheckEnabled: true
+      HealthCheckPath: /health
+      HealthCheckProtocol: HTTP
+      HealthCheckIntervalSeconds: 30
+      HealthCheckTimeoutSeconds: 5
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 3
+      Matcher:
+        HttpCode: 200
+      TargetGroupAttributes:
+        - Key: deregistration_delay.timeout_seconds
+          Value: '30'
+
+  # Target Group for Product Service (Blue)
+  ProductServiceTargetGroupBlue:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    DependsOn: ApplicationLoadBalancer
+    Properties:
+      Name: !Sub ${EnvironmentName}-prod-blue
+      Port: 3001
+      Protocol: HTTP
+      TargetType: ip
+      VpcId:
+        Fn::ImportValue: !Sub ${EnvironmentName}-vpc-id
+      HealthCheckEnabled: true
+      HealthCheckPath: /health
+      HealthCheckProtocol: HTTP
+      HealthCheckIntervalSeconds: 30
+      HealthCheckTimeoutSeconds: 5
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 3
+      Matcher:
+        HttpCode: 200
+      TargetGroupAttributes:
+        - Key: deregistration_delay.timeout_seconds
+          Value: '30'
+
+  # Target Group for Product Service (Green)
+  ProductServiceTargetGroupGreen:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    DependsOn: ApplicationLoadBalancer
+    Properties:
+      Name: !Sub ${EnvironmentName}-prod-green
+      Port: 3001
+      Protocol: HTTP
+      TargetType: ip
+      VpcId:
+        Fn::ImportValue: !Sub ${EnvironmentName}-vpc-id
+      HealthCheckEnabled: true
+      HealthCheckPath: /health
+      HealthCheckProtocol: HTTP
+      HealthCheckIntervalSeconds: 30
+      HealthCheckTimeoutSeconds: 5
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 3
+      Matcher:
+        HttpCode: 200
+      TargetGroupAttributes:
+        - Key: deregistration_delay.timeout_seconds
+          Value: '30'
+
+  # HTTP Listener
+  HTTPListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    DependsOn:
+      - UserServiceTargetGroupBlue
+      - ProductServiceTargetGroupBlue
+    Properties:
+      LoadBalancerArn: !Ref ApplicationLoadBalancer
+      Port: 80
+      Protocol: HTTP
+      DefaultActions:
+        - Type: fixed-response
+          FixedResponseConfig:
+            StatusCode: 200
+            ContentType: application/json
+            MessageBody: '{"message":"Microservices API Gateway","services":["user-service","product-service"]}'
+
+  # Listener Rule for User Service
+  UserServiceListenerRule:
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Properties:
+      ListenerArn: !Ref HTTPListener
+      Priority: 1
+      Conditions:
+        - Field: path-pattern
+          PathPatternConfig:
+            Values:
+              - /api/users*
+              - /health/user*
+      Actions:
+        - Type: forward
+          TargetGroupArn: !Ref UserServiceTargetGroupBlue
+
+  # Listener Rule for Product Service
+  ProductServiceListenerRule:
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Properties:
+      ListenerArn: !Ref HTTPListener
+      Priority: 2
+      Conditions:
+        - Field: path-pattern
+          PathPatternConfig:
+            Values:
+              - /api/products*
+              - /health/product*
+      Actions:
+        - Type: forward
+          TargetGroupArn: !Ref ProductServiceTargetGroupBlue
+
+Outputs:
+  LoadBalancerUrl:
+    Description: URL of the Application Load Balancer
+    Value: !Sub http://${ApplicationLoadBalancer.DNSName}
+    Export:
+      Name: !Sub ${EnvironmentName}-alb-url
+
+  LoadBalancerDNS:
+    Description: DNS name of the Application Load Balancer
+    Value: !GetAtt ApplicationLoadBalancer.DNSName
+    Export:
+      Name: !Sub ${EnvironmentName}-alb-dns
+
+  LoadBalancerArn:
+    Description: ARN of the Application Load Balancer
+    Value: !Ref ApplicationLoadBalancer
+    Export:
+      Name: !Sub ${EnvironmentName}-alb-arn
+
+  HTTPListenerArn:
+    Description: ARN of the HTTP Listener
+    Value: !Ref HTTPListener
+    Export:
+      Name: !Sub ${EnvironmentName}-http-listener-arn
+
+  UserServiceTargetGroupBlueArn:
+    Description: ARN of User Service Blue Target Group
+    Value: !Ref UserServiceTargetGroupBlue
+    Export:
+      Name: !Sub ${EnvironmentName}-user-tg-blue-arn
+
+  UserServiceTargetGroupGreenArn:
+    Description: ARN of User Service Green Target Group
+    Value: !Ref UserServiceTargetGroupGreen
+    Export:
+      Name: !Sub ${EnvironmentName}-user-tg-green-arn
+
+  ProductServiceTargetGroupBlueArn:
+    Description: ARN of Product Service Blue Target Group
+    Value: !Ref ProductServiceTargetGroupBlue
+    Export:
+      Name: !Sub ${EnvironmentName}-product-tg-blue-arn
+
+  ProductServiceTargetGroupGreenArn:
+    Description: ARN of Product Service Green Target Group
+    Value: !Ref ProductServiceTargetGroupGreen
+    Export:
+      Name: !Sub ${EnvironmentName}-product-tg-green-arn
