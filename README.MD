@@ -33,22 +33,6 @@ curl http://microservices-alb-1563767057.us-east-1.elb.amazonaws.com/api/product
 
 ---
 
-## 📋 Table of Contents
-
-- [Architecture](#architecture)
-- [Features](#features)
-- [Technologies Used](#technologies-used)
-- [Project Structure](#project-structure)
-- [Prerequisites](#prerequisites)
-- [Deployment Guide](#deployment-guide)
-- [Testing](#testing)
-- [Monitoring](#monitoring)
-- [Cost Optimization](#cost-optimization)
-- [Cleanup](#cleanup)
-- [What I Learned](#what-i-learned)
-
----
-
 ## 🏗️ Architecture
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -495,5 +479,6 @@ Potential improvements for this project:
 ## 📝 License
 
 This project is licensed under the MIT License 
+
 
 
