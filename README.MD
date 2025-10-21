@@ -4,33 +4,6 @@ A production-ready microservices architecture demonstrating modern cloud-native 
 
 ![Architecture](https://img.shields.io/badge/AWS-ECS_Fargate-orange) ![Docker](https://img.shields.io/badge/Docker-Container-blue) ![Node.js](https://img.shields.io/badge/Node.js-18-green) ![CloudFormation](https://img.shields.io/badge/IaC-CloudFormation-yellow)
 
-## 🚀 Live Demo
-
-**API Base URL**: `http://microservices-alb-1563767057.us-east-1.elb.amazonaws.com`
-
-### Endpoints
-
-**User Service:**
-- `GET /api/users` - List all users
-- `GET /api/users/:id` - Get user by ID
-- `POST /api/users` - Create new user
-- `PUT /api/users/:id` - Update user
-- `DELETE /api/users/:id` - Delete user
-
-**Product Service:**
-- `GET /api/products` - List all products
-- `GET /api/products/:id` - Get product by ID
-- `GET /api/products?category=Electronics` - Filter by category
-- `POST /api/products` - Create new product
-- `PUT /api/products/:id` - Update product
-- `DELETE /api/products/:id` - Delete product
-
-**Try it:**
-```bash
-curl http://microservices-alb-1563767057.us-east-1.elb.amazonaws.com/api/users
-curl http://microservices-alb-1563767057.us-east-1.elb.amazonaws.com/api/products
-```
-
 ---
 
 ## 🏗️ Architecture
@@ -479,6 +452,7 @@ Potential improvements for this project:
 ## 📝 License
 
 This project is licensed under the MIT License 
+
 
 
 
